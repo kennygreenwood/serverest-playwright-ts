@@ -178,4 +178,26 @@ test.describe('POST /login', () => {
       },
     );
   }
+
+  test(
+    'CT05 - login com e-mail em formato inválido',
+    { tag: ['@CT05', '@negativo', '@validacao'] },
+    async ({ request }) => {
+      // Quando envio POST /login com o e-mail "semarroba"
+      // A senha é a válida do usuário, para que o único problema seja o formato do e-mail
+      const resposta = await request.post('/login', {
+        data: { email: 'semarroba', password: usuario.password },
+      });
+
+      // Então o status da resposta é 400
+      expect(resposta.status()).toBe(400);
+
+      // E o campo "email" da resposta traz a mensagem "email deve ser um email válido"
+      const corpo: RespostaValidacao = await resposta.json();
+      expect(corpo.email).toBe('email deve ser um email válido');
+
+      // Erro de validação não pode devolver token
+      expect(corpo).not.toHaveProperty('authorization');
+    },
+  );
 });
