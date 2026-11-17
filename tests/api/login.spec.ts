@@ -72,4 +72,27 @@ test.describe('POST /login', () => {
       expect(corpo.authorization).toMatch(/^Bearer \S+$/);
     },
   );
+
+  test(
+    'CT02 - login com senha errada',
+    { tag: ['@CT02', '@negativo'] },
+    async ({ request }) => {
+      // Quando envio POST /login com o e-mail do usuário e uma senha errada
+      // A senha errada deriva da certa, assim o teste nunca usa a senha válida por engano
+      const resposta = await request.post('/login', {
+        data: { email: usuario.email, password: `${usuario.password}-errada` },
+      });
+
+      // Então o status da resposta é 401
+      expect(resposta.status()).toBe(401);
+
+      // E a mensagem é "Email e/ou senha inválidos"
+      const corpo: RespostaLogin = await resposta.json();
+      expect(corpo.message).toBe('Email e/ou senha inválidos');
+
+      // E a resposta não contém o campo "authorization"
+      // Checa a ausência da chave, não só do valor: um "authorization": "" também reprovaria
+      expect(corpo).not.toHaveProperty('authorization');
+    },
+  );
 });
