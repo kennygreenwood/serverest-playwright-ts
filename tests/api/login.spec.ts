@@ -19,6 +19,27 @@ interface RespostaLogin {
   authorization?: string;
 }
 
+// Tipos do CT04 (Esquema do Cenário): cada linha da tabela "Exemplos" vira um teste
+type CampoLogin = 'email' | 'password';
+type SituacaoCampo = 'ausente' | 'vazio';
+
+interface ExemploCampoObrigatorio {
+  campo: CampoLogin;
+  situacao: SituacaoCampo;
+  mensagem: string;
+}
+
+// Em erro de validação (400), o ServeRest responde com o nome do campo como chave
+type RespostaValidacao = Partial<Record<CampoLogin, string>>;
+
+// Tabela "Exemplos" do login.feature, copiada linha a linha
+const exemplosCampoObrigatorio: ExemploCampoObrigatorio[] = [
+  { campo: 'email', situacao: 'ausente', mensagem: 'email é obrigatório' },
+  { campo: 'password', situacao: 'ausente', mensagem: 'password é obrigatório' },
+  { campo: 'email', situacao: 'vazio', mensagem: 'email não pode ficar em branco' },
+  { campo: 'password', situacao: 'vazio', mensagem: 'password não pode ficar em branco' },
+];
+
 test.describe('POST /login', () => {
   let usuario: Usuario;
   let idUsuario: string | undefined;
@@ -126,4 +147,35 @@ test.describe('POST /login', () => {
       expect(corpo).toEqual(corpoSenhaErrada);
     },
   );
+
+  // Um teste para cada linha da tabela; o nome inclui campo e situação para
+  // que o relatório mostre exatamente qual linha falhou
+  for (const { campo, situacao, mensagem } of exemplosCampoObrigatorio) {
+    test(
+      `CT04 - login com campo "${campo}" ${situacao}`,
+      { tag: ['@CT04', '@negativo', '@validacao'] },
+      async ({ request }) => {
+        // Quando envio POST /login com o campo "<campo>" <situacao>
+        // Parte de um corpo válido e estraga só um campo, para isolar a causa do erro
+        const corpoRequisicao: Partial<Record<CampoLogin, string>> = {
+          email: usuario.email,
+          password: usuario.password,
+        };
+        if (situacao === 'ausente') {
+          delete corpoRequisicao[campo];
+        } else {
+          corpoRequisicao[campo] = '';
+        }
+
+        const resposta = await request.post('/login', { data: corpoRequisicao });
+
+        // Então o status da resposta é 400
+        expect(resposta.status()).toBe(400);
+
+        // E o campo "<campo>" da resposta traz a mensagem "<mensagem>"
+        const corpo: RespostaValidacao = await resposta.json();
+        expect(corpo[campo]).toBe(mensagem);
+      },
+    );
+  }
 });
