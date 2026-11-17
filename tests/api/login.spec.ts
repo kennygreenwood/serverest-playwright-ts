@@ -95,4 +95,35 @@ test.describe('POST /login', () => {
       expect(corpo).not.toHaveProperty('authorization');
     },
   );
+
+  test(
+    'CT03 - login com e-mail inexistente não revela se o e-mail está cadastrado',
+    { tag: ['@CT03', '@negativo', '@seguranca'] },
+    async ({ request }) => {
+      // Quando envio POST /login com um e-mail que não está cadastrado
+      // E-mail novo e aleatório, nunca cadastrado; a senha é a válida do usuário,
+      // para que a única coisa errada na requisição seja o e-mail
+      const emailInexistente = `qa-${randomUUID()}@teste.com`;
+      const resposta = await request.post('/login', {
+        data: { email: emailInexistente, password: usuario.password },
+      });
+
+      // Então o status da resposta é 401
+      expect(resposta.status()).toBe(401);
+
+      // E a mensagem é "Email e/ou senha inválidos"
+      const corpo: RespostaLogin = await resposta.json();
+      expect(corpo.message).toBe('Email e/ou senha inválidos');
+
+      // E a resposta é idêntica à de um login com senha errada
+      // Se as duas respostas diferissem, um atacante descobriria quais e-mails estão cadastrados
+      const respostaSenhaErrada = await request.post('/login', {
+        data: { email: usuario.email, password: `${usuario.password}-errada` },
+      });
+      const corpoSenhaErrada: RespostaLogin = await respostaSenhaErrada.json();
+
+      expect(resposta.status()).toBe(respostaSenhaErrada.status());
+      expect(corpo).toEqual(corpoSenhaErrada);
+    },
+  );
 });
